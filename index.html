@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess – 2 Player & Online</title>
+    <meta name="description" content="Play chess locally or online. Import PGN to resume any game.">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <!-- ======= MOBILE HEADER ======= -->
+    <header class="mobile-header" id="mobile-header">
+        <div class="mh-logo">
+            <span class="logo-piece">♞</span>
+            chess<em>.2p</em>
+        </div>
+        <div class="mh-actions">
+            <button class="mh-btn" id="mh-btn-sidebar" title="Menu"><i class="fa-solid fa-bars"></i></button>
+            <button class="mh-btn" id="mh-btn-panel" title="Moves"><i class="fa-solid fa-list"></i></button>
+            <button class="mh-btn" id="sound-toggle-mobile" title="Toggle Sound"><i class="fa-solid fa-volume-high"></i></button>
+            <button class="mh-btn" id="btn-flip-mobile" title="Flip board"><i class="fa-solid fa-arrows-rotate"></i></button>
+        </div>
+    </header>
+
+    <!-- Mobile backdrop for drawer overlay -->
+    <div class="mobile-backdrop" id="mobile-backdrop"></div>
+
+    <div class="app-layout">
+
+    <!-- ======= LEFT SIDEBAR ======= -->
+    <nav class="sidebar">
+        <div class="logo">
+            <span class="logo-piece">♞</span>
+            <span class="logo-word">chess<em>.2p</em></span>
+        </div>
+
+        <div class="nav-items">
+            <button class="nav-btn active" id="nav-new-game">
+                <i class="fa-solid fa-plus"></i> New Game
+            </button>
+            <button class="nav-btn" id="nav-pgn">
+                <i class="fa-solid fa-file-import"></i> Import PGN
+            </button>
+        </div>
+
+        <div class="player-setup" id="player-setup">
+            <div class="name-row">
+                <span class="piece-icon white-piece-icon">♔</span>
+                <input type="text" id="white-name" class="name-input" value="Player 1" maxlength="15" placeholder="White">
+            </div>
+            <div class="name-row">
+                <span class="piece-icon black-piece-icon">♚</span>
+                <input type="text" id="black-name" class="name-input" value="Player 2" maxlength="15" placeholder="Black">
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-footer-row">
+                <button class="sound-toggle-btn" id="sound-toggle" title="Toggle Sound">
+                    <i class="fa-solid fa-volume-high"></i>
+                </button>
+                <div class="online-status" id="online-status-bar">
+                    <span class="dot-offline"></span> Offline
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ======= BOARD AREA ======= -->
+    <main class="board-area">
+        <!-- Top Player (Black by default) -->
+        <div class="player-bar" id="top-player-bar">
+            <div class="avatar avatar-dark" id="top-avatar">
+                <span id="top-king">♚</span>
+            </div>
+            <div class="player-details">
+                <span class="player-name-tag" id="top-name">Player 2</span>
+                <div class="captured-row" id="top-captured"></div>
+            </div>
+            <div class="check-pill hidden" id="top-check">CHECK</div>
+        </div>
+
+        <!-- Chessboard -->
+        <div class="board-wrapper">
+            <div id="chessboard" class="chessboard">
+                <!-- 64 squares rendered by JS -->
+            </div>
+        </div>
+
+        <!-- Bottom Player (White by default) -->
+        <div class="player-bar player-bar-active" id="bottom-player-bar">
+            <div class="avatar avatar-light" id="bottom-avatar">
+                <span id="bottom-king">♔</span>
+            </div>
+            <div class="player-details">
+                <span class="player-name-tag" id="bottom-name">Player 1</span>
+                <div class="captured-row" id="bottom-captured"></div>
+            </div>
+            <div class="check-pill hidden" id="bottom-check">CHECK</div>
+        </div>
+    </main>
+
+    <!-- ======= RIGHT PANEL ======= -->
+    <aside class="right-panel">
+        <!-- Game Header -->
+        <div class="panel-header">
+            <span id="game-badge" class="gbadge badge-idle">Ready</span>
+            <span id="turn-text" class="turn-text">White to move</span>
+        </div>
+
+        <!-- Tabs -->
+        <div class="panel-tabs">
+            <button class="ptab active" data-tab="ptab-moves">
+                <i class="fa-solid fa-list-ol"></i> Moves
+            </button>
+            <button class="ptab" data-tab="ptab-pgn">
+                <i class="fa-solid fa-file-import"></i> PGN
+            </button>
+        </div>
+
+        <!-- Moves Tab -->
+        <div class="ptab-content active" id="ptab-moves">
+            <div class="move-list-scroll">
+                <table class="move-table">
+                    <thead>
+                        <tr><th>#</th><th>White</th><th>Black</th></tr>
+                    </thead>
+                    <tbody id="move-tbody">
+                        <tr class="empty-row"><td colspan="3">No moves yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PGN Tab -->
+        <div class="ptab-content" id="ptab-pgn">
+            <div class="pgn-inner">
+                <div class="pgn-drop" id="pgn-drop">
+                    <i class="fa-solid fa-cloud-arrow-up pgn-drop-icon"></i>
+                    <p>Drop <strong>.pgn</strong> file or paste below</p>
+                    <input type="file" id="pgn-file" accept=".pgn,.txt" class="hidden-input">
+                    <button class="btn-outline" id="btn-pgn-browse">Browse File</button>
+                </div>
+                <textarea id="pgn-text" class="pgn-ta" rows="6"
+                    placeholder="Paste PGN here...&#10;&#10;1. e4 e5 2. Nf3 Nc6 3. Bb5"></textarea>
+
+                <div id="pgn-preview" class="pgn-preview hidden">
+                    <div id="pgn-meta-tags" class="pgn-meta-tags"></div>
+                    <label class="slider-label">
+                        Resume from:
+                        <strong id="slider-val-label">End</strong>
+                    </label>
+                    <input type="range" id="pgn-slider" class="pgn-slider" min="0" step="1">
+                    <div id="slider-desc" class="slider-desc"></div>
+                </div>
+
+                <div id="pgn-err" class="pgn-err hidden"></div>
+
+                <div class="pgn-action-row">
+                    <button class="btn-outline" id="btn-pgn-clear">Clear</button>
+                    <button class="btn-green" id="btn-pgn-load" disabled>Load & Resume</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <button class="ab-btn" id="btn-flip" title="Flip board">
+                <i class="fa-solid fa-arrows-rotate"></i><span>Flip</span>
+            </button>
+            <button class="ab-btn" id="btn-undo" title="Undo last move">
+                <i class="fa-solid fa-rotate-left"></i><span>Undo</span>
+            </button>
+            <button class="ab-btn" id="btn-new-game" title="New game">
+                <i class="fa-solid fa-plus"></i><span>New</span>
+            </button>
+            <button class="ab-btn" id="btn-copy-pgn" title="Copy PGN">
+                <i class="fa-solid fa-copy"></i><span>PGN</span>
+            </button>
+        </div>
+    </aside>
+</div>
+
+<!-- ============================================================
+     MODALS
+     ============================================================ -->
+
+<!-- New Game Modal -->
+<div id="newgame-modal" class="modal-overlay hidden">
+    <div class="modal-card online-card">
+        <button class="modal-close-btn" id="close-newgame"><i class="fa-solid fa-xmark"></i></button>
+        <div class="modal-head">
+            <i class="fa-solid fa-plus modal-icon"></i>
+            <h2>New Game</h2>
+            <p>Choose how you want to play.</p>
+        </div>
+        <div class="online-choice-grid">
+            <button class="choice-btn" id="btn-local-game">
+                <i class="fa-solid fa-chess-board"></i>
+                <strong>Local 2 Player</strong>
+                <span>Play on the same device.</span>
+            </button>
+            <button class="choice-btn" id="btn-online-game">
+                <i class="fa-solid fa-globe"></i>
+                <strong>Play Online</strong>
+                <span>Connect with a friend.</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Online Modal -->
+<div id="online-modal" class="modal-overlay hidden">
+    <div class="modal-card online-card">
+        <button class="modal-close-btn" id="close-online"><i class="fa-solid fa-xmark"></i></button>
+        <div class="modal-head">
+            <i class="fa-solid fa-globe modal-icon"></i>
+            <h2>Play Online</h2>
+            <p>Connect with a friend anywhere via a shareable room code.</p>
+        </div>
+
+        <!-- Idle view -->
+        <div id="view-idle">
+            <div class="online-choice-grid">
+                <button class="choice-btn" id="btn-create">
+                    <i class="fa-solid fa-circle-plus"></i>
+                    <strong>Create Game</strong>
+                    <span>You play as White. Share the link.</span>
+                </button>
+                <button class="choice-btn" id="btn-join-show">
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                    <strong>Join Game</strong>
+                    <span>Enter a room code from your friend.</span>
+                </button>
+            </div>
+            <div class="join-field hidden" id="join-field">
+                <input type="text" id="join-code" class="code-inp" maxlength="6"
+                    placeholder="e.g. AB12CD" spellcheck="false">
+                <button class="btn-green" id="btn-join-go">Connect →</button>
+            </div>
+        </div>
+
+        <!-- Waiting for opponent -->
+        <div id="view-waiting" class="hidden">
+            <div class="room-display">
+                <span class="room-label">Room Code</span>
+                <div class="room-code" id="room-code">------</div>
+            </div>
+            <div class="share-row">
+                <input class="share-link-inp" id="share-link" readonly>
+                <button class="btn-green btn-icon-only" id="btn-copy-link" title="Copy link">
+                    <i class="fa-solid fa-copy"></i>
+                </button>
+            </div>
+            <div class="spinner-row">
+                <div class="spinner"></div>
+                <span id="wait-text">Waiting for opponent…</span>
+            </div>
+            <button class="btn-outline" id="btn-cancel-wait">Cancel</button>
+        </div>
+
+        <!-- Connected, ready to start -->
+        <div id="view-connected" class="hidden">
+            <div class="connected-block">
+                <div class="check-circle"><i class="fa-solid fa-check"></i></div>
+                <h3>Opponent Connected!</h3>
+                <p id="online-color-msg">Waiting for host to set colors...</p>
+
+                <!-- Color choice (HOST ONLY) -->
+                <div class="color-pick" id="color-pick-host">
+                    <h4>Choose colors (Host only)</h4>
+                    <div class="color-choice-row">
+                        <button class="color-choice" id="pick-white">
+                            <span class="cc-pic cc-white">♔</span> You: White
+                        </button>
+                        <button class="color-choice" id="pick-black">
+                            <span class="cc-pic cc-black">♚</span> You: Black
+                        </button>
+                    </div>
+                    <p class="color-hint" id="color-hint">Select your color — opponent gets the other.</p>
+                    <p class="color-chosen hidden" id="color-chosen"></p>
+                </div>
+
+                <!-- Guest sees this instead -->
+                <div class="color-waiting hidden" id="color-waiting-guest">
+                    <p class="color-hint">Host is choosing colors...</p>
+                </div>
+
+                <button class="btn-green btn-lg" id="btn-start-online" disabled>
+                    Start Online Game <i class="fa-solid fa-play"></i>
+                </button>
+
+                <!-- Shareable room — available for BOTH players -->
+                <div class="room-share-extra">
+                    <div class="room-code mini" id="room-code-echo">------</div>
+                    <div class="share-row s-row">
+                        <input class="share-link-inp" id="share-link-connected" readonly>
+                        <button class="btn-green btn-icon-only" id="btn-copy-link-connected" title="Copy link">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                        <button class="btn-sm-sec" id="btn-copy-code-echo" title="Copy room code">Code</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PGN Load Modal (asks Local/Online + player color) -->
+<div id="pgn-load-modal" class="modal-overlay hidden">
+    <div class="modal-card online-card">
+        <button class="modal-close-btn" id="close-pgn-load"><i class="fa-solid fa-xmark"></i></button>
+        <div class="modal-head">
+            <i class="fa-solid fa-file-import modal-icon"></i>
+            <h2>Load PGN</h2>
+            <p>How do you want to play this game?</p>
+        </div>
+
+        <div id="pgn-load-step1">
+            <div class="online-choice-grid">
+                <button class="choice-btn" id="pgn-load-local">
+                    <i class="fa-solid fa-chess-board"></i>
+                    <strong>Local 2 Player</strong>
+                    <span>Play on the same device.</span>
+                </button>
+                <button class="choice-btn" id="pgn-load-online">
+                    <i class="fa-solid fa-globe"></i>
+                    <strong>Play Online</strong>
+                    <span>Connect with a friend.</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="pgn-load-step2" class="hidden">
+            <p class="color-hint">Which player are you?</p>
+            <div class="color-choice-row">
+                <button class="color-choice" id="pgn-pick-white">
+                    <span class="cc-pic cc-white">♔</span> White
+                </button>
+                <button class="color-choice" id="pgn-pick-black">
+                    <span class="cc-pic cc-black">♚</span> Black
+                </button>
+            </div>
+        </div>
+
+        <div id="pgn-load-step3" class="hidden">
+            <p class="color-hint">Connect with a friend to continue...</p>
+            <div class="room-share-extra">
+                <div class="room-code mini" id="pgn-room-code">------</div>
+                <div class="share-row s-row">
+                    <input class="share-link-inp" id="pgn-share-link" readonly>
+                    <button class="btn-green btn-icon-only" id="btn-copy-pgn-link" title="Copy link">
+                        <i class="fa-solid fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="spinner-row" id="pgn-waiting-spinner">
+                <div class="spinner"></div>
+                <span>Waiting for opponent…</span>
+            </div>
+            <button class="btn-outline" id="btn-cancel-pgn-wait">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Promotion Modal -->
+<div id="promo-modal" class="modal-overlay hidden">
+    <div class="modal-card promo-card">
+        <h3 class="promo-title">Promote Pawn</h3>
+        <div id="promo-grid" class="promo-grid"></div>
+    </div>
+</div>
+
+<!-- Game Over Modal -->
+<div id="go-modal" class="modal-overlay hidden">
+    <div class="modal-card go-card">
+        <div class="go-big-icon" id="go-icon">♛</div>
+        <h2 id="go-title">Checkmate!</h2>
+        <p id="go-sub">White wins the game</p>
+        <div class="go-btn-row" id="go-btn-row-normal">
+            <button class="btn-outline" id="btn-review">Review</button>
+            <button class="btn-outline" id="btn-undo-last" title="Undo last move">↶ Undo</button>
+            <button class="btn-green" id="btn-rematch">Play Again</button>
+        </div>
+        <div class="go-btn-row hidden" id="go-btn-row-disconnect">
+            <button class="btn-green" id="btn-exit-game">Exit</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="chess.js"></script>
+<script src="sound.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
