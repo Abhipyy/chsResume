@@ -154,6 +154,40 @@ html, body {
     border-left: 3px solid var(--green);
 }
 
+/* Quick join (sidebar) */
+.quick-join {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+.quick-join-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--tx-dim);
+    padding: 0 6px;
+}
+.quick-join-row {
+    display: flex;
+    gap: 6px;
+}
+.quick-join-row .code-inp {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    padding: 8px 8px;
+    letter-spacing: 2px;
+    text-align: center;
+}
+.btn-join-sidebar {
+    padding: 8px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
 /* Player name setup */
 .player-setup {
     display: flex;

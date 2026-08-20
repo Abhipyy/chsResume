@@ -1265,6 +1265,26 @@ const App = (() => {
     // ============================================================
     //  ONLINE MULTIPLAYER
     // ============================================================
+
+    /**
+     * Shared join routine — used by the online modal AND the sidebar
+     * quick-join. Returns true on successful connection; onConnect handles UI.
+     */
+    async function joinRoom(code, btn) {
+        code = (code || '').trim().toUpperCase();
+        if (code.length < 4) { showToast('Enter a valid room code', 'err'); return false; }
+        const originalText = btn ? btn.textContent : '';
+        if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
+        try {
+            await Online.joinGame(code);
+            return true;
+        } catch(e) {
+            showToast('Could not connect: ' + e.message, 'err');
+            if (btn) { btn.disabled = false; btn.textContent = originalText; }
+            return false;
+        }
+    }
+
     function setupOnlinePanel() {
         const modal         = document.getElementById('online-modal');
         const closeBtn      = document.getElementById('close-online');
@@ -1336,18 +1356,7 @@ const App = (() => {
 
         // JOIN GAME
         async function doJoin() {
-            const code = joinCode.value.trim().toUpperCase();
-            if (code.length < 4) { showToast('Enter a valid room code', 'err'); return; }
-            btnJoinGo.disabled = true;
-            btnJoinGo.textContent = 'Connecting…';
-            try {
-                await Online.joinGame(code);
-                // Connection handled by onConnect callback
-            } catch(e) {
-                showToast('Could not connect: ' + e.message, 'err');
-                btnJoinGo.disabled = false;
-                btnJoinGo.textContent = 'Connect →';
-            }
+            await joinRoom(joinCode.value, btnJoinGo);
         }
         btnJoinGo.addEventListener('click', doJoin);
         joinCode.addEventListener('keydown', e => { if (e.key === 'Enter') doJoin(); });
@@ -1654,6 +1663,7 @@ const App = (() => {
         setupOnlinePanel();
         setupMobileUI();
         setupSoundToggle();
+        setupSidebarJoin();
 
         // Preload piece images, then render
         preloadPieceImages().then(() => {
@@ -1749,6 +1759,21 @@ const App = (() => {
                 }
             });
         }
+    }
+
+    // ============================================================
+    //  SIDEBAR QUICK JOIN
+    // ============================================================
+    function setupSidebarJoin() {
+        const input = document.getElementById('sidebar-join-code');
+        const btn = document.getElementById('btn-sidebar-join');
+        if (!input || !btn) return;
+
+        const doJoin = async () => {
+            await joinRoom(input.value, btn);
+        };
+        btn.addEventListener('click', doJoin);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') doJoin(); });
     }
 
     // ============================================================
