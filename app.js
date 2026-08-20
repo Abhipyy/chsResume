@@ -312,23 +312,41 @@ const Online = (() => {
             });
             peer.on('error', fail);
 
-            joinTimer = setTimeout(() => fail(new Error('Connection timed out')), 15000);
+            joinTimer = setTimeout(() => fail(new Error('Connection timed out')), 10000);
         });
     }
 
-    /** Recreate a room as the host with a specific code (host page refresh). */
-    function rehost(roomId) {
+    /** Recreate a room as the host with a specific code (host page refresh).
+     *  The old peer ID may still be held by the signaling server for a few
+     *  seconds, so retry on "ID is taken" instead of giving up. */
+    function rehost(code) {
         return new Promise((resolve, reject) => {
             destroyPeer();
-            roomId = roomId.toUpperCase().trim();
-            peer = new Peer('chess2p-' + roomId);
-            peer.on('open', () => resolve(roomId));
-            peer.on('connection', (c) => {
-                conn = c;
-                setupConn();
-                if (callbacks.connect) callbacks.connect('w');
-            });
-            peer.on('error', reject);
+            roomId = code.toUpperCase().trim();
+            let attempts = 0;
+            const tryCreate = () => {
+                attempts++;
+                const p = new Peer('chess2p-' + roomId);
+                p.on('open', () => {
+                    peer = p;
+                    resolve(roomId);
+                });
+                p.on('connection', (c) => {
+                    conn = c;
+                    setupConn();
+                    if (callbacks.connect) callbacks.connect('w');
+                });
+                p.on('error', (err) => {
+                    try { p.destroy(); } catch(e) {}
+                    if (err && err.type === 'unavailable-id' && attempts < 20) {
+                        // ID still held by the server — wait and try again
+                        setTimeout(tryCreate, 3000);
+                    } else {
+                        reject(err);
+                    }
+                });
+            };
+            tryCreate();
         });
     }
 
@@ -406,6 +424,7 @@ const App = (() => {
     let promoPending  = null;   // { from, to }
     let onlineMode    = false;  // true when playing online
     let onlineGameStarted = false; // guard against double-start
+    let isReconnecting = false; // true while auto-rejoining after refresh
     let pgnParsed     = null;   // { headers, moves, sans, fens }
 
     let playerNames = { w: 'Player 1', b: 'Player 2' };
@@ -469,34 +488,20 @@ const App = (() => {
         if (state.onlineMode && state.roomId) {
             onlineMode = true;
             onlineGameStarted = true;
+            isReconnecting = true;
             onlineStatusBar.innerHTML = `<span class="dot-online"></span> Reconnecting...`;
-            if (state.myColor === 'w') {
-                // Host refreshed — recreate the room so the opponent can rejoin
-                Online.rehost(state.roomId).then(() => {
-                    Online.setMyColor('w');
-                    showToast('Room recreated! Opponent can rejoin with the room code.', 'ok');
-                    updateRoomCodeDisplay();
-                }).catch(() => {
+            updateRoomCodeDisplay(state.roomId);
+            attemptReconnect(state.roomId, state.myColor).then((ok) => {
+                isReconnecting = false;
+                if (!ok) {
                     onlineMode = false;
+                    onlineGameStarted = false;
                     onlineStatusBar.innerHTML = `<span class="dot-offline"></span> Offline`;
-                    showToast('Could not recreate room', 'err');
+                    showToast('Could not reconnect — use Quick Join with your room code', 'err');
                     setSidebarJoinState(false);
                     updateRoomCodeDisplay();
-                });
-            } else {
-                // Guest refreshed — reconnect to the host's room
-                Online.joinGame(state.roomId).then(() => {
-                    Online.setMyColor(state.myColor);
-                    showToast('Reconnected to game!', 'ok');
-                    setSidebarJoinState(true);
-                }).catch(() => {
-                    onlineMode = false;
-                    onlineStatusBar.innerHTML = `<span class="dot-offline"></span> Offline`;
-                    showToast('Could not reconnect', 'err');
-                    setSidebarJoinState(false);
-                    updateRoomCodeDisplay();
-                });
-            }
+                }
+            });
         }
 
         renderBoard();
@@ -792,14 +797,38 @@ const App = (() => {
     }
 
     // ---- Room code (bar above the board) ----
-    function updateRoomCodeDisplay() {
+    function updateRoomCodeDisplay(fallbackRoomId) {
         const bar = document.getElementById('room-bar');
         if (!bar) return;
         const val = document.getElementById('room-bar-code');
-        const roomId = Online.getRoomId();
+        const roomId = Online.getRoomId() || fallbackRoomId;
         const show = !!roomId && (onlineMode || Online.isConnected());
         bar.classList.toggle('hidden', !show);
         if (val && roomId) val.textContent = roomId;
+    }
+
+    /**
+     * Keep trying to rejoin the room until it succeeds (the host peer may be
+     * recreating its ID after a refresh, which takes a few seconds).
+     */
+    async function attemptReconnect(roomId, myColor) {
+        for (let i = 0; i < 12; i++) {
+            try {
+                if (myColor === 'w') {
+                    await Online.rehost(roomId);
+                } else {
+                    await Online.joinGame(roomId);
+                }
+                Online.setMyColor(myColor);
+                setSidebarJoinState(true);
+                updateRoomCodeDisplay();
+                showToast(myColor === 'w' ? 'Room recreated — waiting for opponent to rejoin' : 'Reconnected to game!', 'ok');
+                return true;
+            } catch(e) {
+                await new Promise(r => setTimeout(r, 4000));
+            }
+        }
+        return false;
     }
 
     // ---- Sidebar quick-join button state ----
@@ -1628,6 +1657,7 @@ const App = (() => {
         });
 
         Online.onDisconnect(() => {
+            if (isReconnecting) return; // ignore spurious closes during auto-rejoin
             if (onlineGameStarted) {
                 // Keep the board and game state — the opponent can rejoin with the room code
                 onlineStatusBar.innerHTML = `<span class="dot-offline"></span> Disconnected`;
