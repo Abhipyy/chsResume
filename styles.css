@@ -692,6 +692,7 @@ html, body {
 }
 .ab-btn i { font-size: 16px; }
 .ab-btn:hover { color: var(--tx-hi); background: rgba(255,255,255,0.04); }
+.ab-btn:disabled { color: var(--tx-dim); opacity: 0.45; cursor: not-allowed; }
 .ab-btn:not(:last-child) { border-right: 1px solid var(--border); }
 
 /* ====================================================

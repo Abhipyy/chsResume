@@ -704,6 +704,9 @@ const App = (() => {
 
     // ---- Status update ----
     function updateStatus() {
+        // Undo only makes sense in local games
+        const undoBtn = document.getElementById('btn-undo');
+        if (undoBtn) undoBtn.disabled = onlineMode;
         if (gameOver) return;
         const cur = engine.turn;
         const name = playerNames[cur];
@@ -842,6 +845,7 @@ const App = (() => {
 
     // ---- Undo ----
     function undoMove() {
+        if (onlineMode) { showToast('Undo is disabled during online games', 'err'); return; }
         if (sanHistory.length === 0) { showToast('Nothing to undo', 'err'); return; }
         sanHistory.pop();
         fenHistory.pop();
@@ -1617,7 +1621,7 @@ const App = (() => {
         });
         // Undo button in game-over modal (available for local games)
         document.getElementById('btn-undo-last').addEventListener('click', () => {
-            if (gameOverReason !== 'disconnect') {
+            if (gameOverReason !== 'disconnect' && !onlineMode) {
                 document.getElementById('go-modal').classList.add('hidden');
                 undoMove();
             }
