@@ -457,10 +457,13 @@ const App = (() => {
             Online.joinGame(state.roomId).then(() => {
                 Online.setMyColor(state.myColor);
                 showToast('Reconnected to game!', 'ok');
+                setSidebarJoinState(true);
             }).catch(() => {
                 onlineMode = false;
                 onlineStatusBar.innerHTML = `<span class="dot-offline"></span> Offline`;
                 showToast('Could not reconnect', 'err');
+                setSidebarJoinState(false);
+                updateRoomCodeDisplay();
             });
         }
 
@@ -713,13 +716,9 @@ const App = (() => {
 
     // ---- Status update ----
     function updateStatus() {
-        // Undo availability: only when moves exist and (online) it's your own last move
+        // Undo is always available as long as there are moves to take back
         const undoBtn = document.getElementById('btn-undo');
-        if (undoBtn) {
-            if (sanHistory.length === 0) undoBtn.disabled = true;
-            else if (onlineMode && Online.getMyColor() !== (engine.turn === 'w' ? 'b' : 'w')) undoBtn.disabled = true;
-            else undoBtn.disabled = false;
-        }
+        if (undoBtn) undoBtn.disabled = sanHistory.length === 0;
         updateRoomCodeDisplay();
         if (gameOver) return;
         const cur = engine.turn;
@@ -756,15 +755,39 @@ const App = (() => {
         }
     }
 
-    // ---- Room code (sidebar rejoin pill) ----
+    // ---- Room code (bar above the board) ----
     function updateRoomCodeDisplay() {
-        const pill = document.getElementById('sidebar-room-code');
-        if (!pill) return;
-        const val = document.getElementById('sidebar-room-code-val');
+        const bar = document.getElementById('room-bar');
+        if (!bar) return;
+        const val = document.getElementById('room-bar-code');
         const roomId = Online.getRoomId();
         const show = onlineMode && !!roomId;
-        pill.classList.toggle('hidden', !show);
+        bar.classList.toggle('hidden', !show);
         if (val && roomId) val.textContent = roomId;
+    }
+
+    // ---- Sidebar quick-join button state ----
+    function setSidebarJoinState(connected) {
+        const btn = document.getElementById('btn-sidebar-join');
+        if (!btn) return;
+        btn.disabled = connected;
+        btn.innerHTML = connected
+            ? '<i class="fa-solid fa-circle-check"></i> Connected'
+            : '<i class="fa-solid fa-right-to-bracket"></i> Join Room';
+    }
+
+    // ---- Collapse mobile drawers (sidebar / moves panel) ----
+    function collapseMobileDrawers() {
+        const sidebar = document.querySelector('.sidebar');
+        const rightPanel = document.querySelector('.right-panel');
+        const backdrop = document.getElementById('mobile-backdrop');
+        if (sidebar) sidebar.classList.remove('open');
+        if (rightPanel) rightPanel.classList.remove('open');
+        if (backdrop) backdrop.classList.remove('show');
+        const btnSidebar = document.getElementById('mh-btn-sidebar');
+        const btnPanel = document.getElementById('mh-btn-panel');
+        if (btnSidebar) btnSidebar.classList.remove('active');
+        if (btnPanel) btnPanel.classList.remove('active');
     }
 
     function updatePlayerUI() {
@@ -872,14 +895,9 @@ const App = (() => {
     function undoMove() {
         if (sanHistory.length === 0) { showToast('Nothing to undo', 'err'); return; }
 
-        // Online: only the player who made the last move may take it back,
-        // and the undo is mirrored to the opponent so both boards stay in sync.
+        // Online: undo mirrors to the opponent so both boards stay in sync.
+        // Either player may take back; each undo pops one move on both sides.
         if (onlineMode) {
-            const lastMover = engine.turn === 'w' ? 'b' : 'w';
-            if (Online.getMyColor() !== lastMover) {
-                showToast('You can only undo your own last move', 'err');
-                return;
-            }
             doUndo();
             Online.sendUndo();
             return;
@@ -1317,14 +1335,14 @@ const App = (() => {
     async function joinRoom(code, btn) {
         code = (code || '').trim().toUpperCase();
         if (code.length < 4) { showToast('Enter a valid room code', 'err'); return false; }
-        const originalText = btn ? btn.textContent : '';
-        if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
+        const originalHTML = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Connecting…'; }
         try {
             await Online.joinGame(code);
             return true;
         } catch(e) {
             showToast('Could not connect: ' + e.message, 'err');
-            if (btn) { btn.disabled = false; btn.textContent = originalText; }
+            if (btn) { btn.disabled = false; btn.innerHTML = originalHTML; }
             return false;
         }
     }
@@ -1390,6 +1408,7 @@ const App = (() => {
         btnCancelWait.addEventListener('click', () => {
             Online.disconnect();
             showView('idle');
+            setSidebarJoinState(false);
         });
 
         // SHOW JOIN FIELD
@@ -1437,6 +1456,7 @@ const App = (() => {
             onlineGameStarted = false;
             onlineStatusBar.innerHTML = `<span class="dot-offline"></span> Offline`;
             updateRoomCodeDisplay();
+            setSidebarJoinState(false);
         }
 
         // Color choice buttons
@@ -1533,6 +1553,10 @@ const App = (() => {
             onlineStatusBar.innerHTML = `<span class="dot-online"></span> Online`;
             gameBadge.className = 'gbadge badge-online';
             gameBadge.textContent = 'Online';
+
+            // Quick-join button reflects the connected state; collapse drawers on phone
+            setSidebarJoinState(true);
+            collapseMobileDrawers();
         });
 
         Online.onMove((data) => {
@@ -1612,6 +1636,7 @@ const App = (() => {
                 onlineMode = false;
                 onlineStatusBar.innerHTML = `<span class="dot-offline"></span> Offline`;
                 updateRoomCodeDisplay();
+                setSidebarJoinState(false);
             }
             newGame();
             showToast('Local 2-player game started', 'ok');
@@ -1694,6 +1719,7 @@ const App = (() => {
             onlineMode = false;
             onlineStatusBar.innerHTML = `<span class="dot-offline"></span> Offline`;
             updateRoomCodeDisplay();
+            setSidebarJoinState(false);
             newGame();
         });
 
@@ -1827,10 +1853,10 @@ const App = (() => {
         btn.addEventListener('click', doJoin);
         input.addEventListener('keydown', e => { if (e.key === 'Enter') doJoin(); });
 
-        // Room code pill — click to copy the code for rejoining
-        const pill = document.getElementById('sidebar-room-code');
-        if (pill) {
-            pill.addEventListener('click', () => {
+        // Room code bar — click to copy the code for rejoining
+        const roomBar = document.getElementById('room-bar');
+        if (roomBar) {
+            roomBar.addEventListener('click', () => {
                 const code = Online.getRoomId();
                 if (!code) return;
                 navigator.clipboard.writeText(code)

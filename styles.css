@@ -180,28 +180,37 @@ html, body {
 }
 .sidebar-code-inp:focus { outline: none; border-color: var(--green); }
 
-/* Room code pill (sidebar footer) */
-.room-code-pill {
+/* Room bar (above the board) */
+.room-bar {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    width: 100%;
-    margin-top: 8px;
-    padding: 7px 10px;
+    align-self: center;
+    padding: 6px 16px;
+    margin-bottom: 8px;
     background: var(--green-dim);
     border: 1px solid var(--green);
-    border-radius: var(--radius-sm);
+    border-radius: 999px;
     color: var(--green);
-    font-family: var(--mono);
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 3px;
+    font-size: 13px;
     cursor: pointer;
+    user-select: none;
     transition: all 0.15s;
 }
-.room-code-pill:hover { background: rgba(107,184,100,0.25); }
-.room-code-pill i { font-size: 12px; }
+.room-bar:hover { background: rgba(107,184,100,0.25); }
+.room-bar i { font-size: 11px; }
+.room-bar-label {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.room-bar-code {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 3px;
+}
 
 /* Player name setup */
 .player-setup {

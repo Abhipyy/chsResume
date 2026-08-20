@@ -74,15 +74,18 @@
                     <span class="dot-offline"></span> Offline
                 </div>
             </div>
-            <button class="room-code-pill hidden" id="sidebar-room-code" title="Copy room code to rejoin">
-                <i class="fa-solid fa-hashtag"></i>
-                <span id="sidebar-room-code-val">------</span>
-            </button>
         </div>
     </nav>
 
     <!-- ======= BOARD AREA ======= -->
     <main class="board-area">
+        <!-- Room code (visible during online games, click to copy) -->
+        <div class="room-bar hidden" id="room-bar" title="Copy room code to rejoin">
+            <i class="fa-solid fa-hashtag"></i>
+            <span class="room-bar-label">Room</span>
+            <strong class="room-bar-code" id="room-bar-code">------</strong>
+        </div>
+
         <!-- Top Player (Black by default) -->
         <div class="player-bar" id="top-player-bar">
             <div class="avatar avatar-dark" id="top-avatar">
