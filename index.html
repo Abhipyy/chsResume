@@ -47,12 +47,11 @@
         </div>
 
         <div class="quick-join">
-            <span class="quick-join-label">Quick Join</span>
-            <div class="quick-join-row">
-                <input type="text" id="sidebar-join-code" class="code-inp" maxlength="6"
-                    placeholder="Room code" spellcheck="false" autocomplete="off">
-                <button class="btn-green btn-join-sidebar" id="btn-sidebar-join">Join</button>
-            </div>
+            <input type="text" id="sidebar-join-code" class="sidebar-code-inp" maxlength="6"
+                placeholder="Room code" spellcheck="false" autocomplete="off">
+            <button class="nav-btn" id="btn-sidebar-join">
+                <i class="fa-solid fa-right-to-bracket"></i> Join Room
+            </button>
         </div>
 
         <div class="player-setup" id="player-setup">
@@ -75,6 +74,10 @@
                     <span class="dot-offline"></span> Offline
                 </div>
             </div>
+            <button class="room-code-pill hidden" id="sidebar-room-code" title="Copy room code to rejoin">
+                <i class="fa-solid fa-hashtag"></i>
+                <span id="sidebar-room-code-val">------</span>
+            </button>
         </div>
     </nav>
 

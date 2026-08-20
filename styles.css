@@ -162,31 +162,46 @@ html, body {
     padding-top: 8px;
     border-top: 1px solid var(--border);
 }
-.quick-join-label {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--tx-dim);
-    padding: 0 6px;
-}
-.quick-join-row {
-    display: flex;
-    gap: 6px;
-}
-.quick-join-row .code-inp {
-    flex: 1;
-    min-width: 0;
+.sidebar-code-inp {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: var(--radius-sm);
+    color: var(--tx-hi);
+    font-family: var(--mono);
     font-size: 14px;
-    padding: 8px 8px;
-    letter-spacing: 2px;
+    font-weight: 600;
+    padding: 8px 10px;
     text-align: center;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    transition: border-color 0.2s;
 }
-.btn-join-sidebar {
-    padding: 8px 12px;
-    font-size: 12px;
-    white-space: nowrap;
+.sidebar-code-inp:focus { outline: none; border-color: var(--green); }
+
+/* Room code pill (sidebar footer) */
+.room-code-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 8px;
+    padding: 7px 10px;
+    background: var(--green-dim);
+    border: 1px solid var(--green);
+    border-radius: var(--radius-sm);
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
 }
+.room-code-pill:hover { background: rgba(107,184,100,0.25); }
+.room-code-pill i { font-size: 12px; }
 
 /* Player name setup */
 .player-setup {

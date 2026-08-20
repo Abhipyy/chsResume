@@ -244,7 +244,7 @@ const Online = (() => {
     let myColor = null;
     let roomId = null;
     let joinTimer = null;
-    const callbacks = { move: null, start: null, connect: null, disconnect: null };
+    const callbacks = { move: null, start: null, connect: null, disconnect: null, undo: null };
 
     function genRoomId() {
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -320,6 +320,7 @@ const Online = (() => {
         conn.on('data', (data) => {
             if (data.type === 'move' && callbacks.move) callbacks.move(data);
             if (data.type === 'start' && callbacks.start) callbacks.start();
+            if (data.type === 'undo' && callbacks.undo) callbacks.undo();
         });
         conn.on('close', () => {
             clearJoinTimer();
@@ -344,6 +345,13 @@ const Online = (() => {
         }
     }
 
+    /** Tell the opponent to undo the last move (takeback). */
+    function sendUndo() {
+        if (conn && conn.open) {
+            conn.send({ type: 'undo' });
+        }
+    }
+
     function setMyColor(c) { myColor = c; }
     function getMyColor()  { return myColor; }
     function getRoomId()   { return roomId; }
@@ -357,12 +365,13 @@ const Online = (() => {
     function onStart(cb)      { callbacks.start = cb; }
     function onConnect(cb)    { callbacks.connect = cb; }
     function onDisconnect(cb) { callbacks.disconnect = cb; }
+    function onUndo(cb)       { callbacks.undo = cb; }
 
     return {
         createGame, joinGame,
-        sendMove, sendStart,
+        sendMove, sendStart, sendUndo,
         setMyColor, getMyColor, getRoomId, isConnected, disconnect,
-        onMove, onStart, onConnect, onDisconnect
+        onMove, onStart, onConnect, onDisconnect, onUndo
     };
 })();
 
@@ -704,9 +713,14 @@ const App = (() => {
 
     // ---- Status update ----
     function updateStatus() {
-        // Undo only makes sense in local games
+        // Undo availability: only when moves exist and (online) it's your own last move
         const undoBtn = document.getElementById('btn-undo');
-        if (undoBtn) undoBtn.disabled = onlineMode;
+        if (undoBtn) {
+            if (sanHistory.length === 0) undoBtn.disabled = true;
+            else if (onlineMode && Online.getMyColor() !== (engine.turn === 'w' ? 'b' : 'w')) undoBtn.disabled = true;
+            else undoBtn.disabled = false;
+        }
+        updateRoomCodeDisplay();
         if (gameOver) return;
         const cur = engine.turn;
         const name = playerNames[cur];
@@ -740,6 +754,17 @@ const App = (() => {
             gameBadge.textContent = 'Playing';
             if (turnText) turnText.textContent = `${name}'s turn (${label})`;
         }
+    }
+
+    // ---- Room code (sidebar rejoin pill) ----
+    function updateRoomCodeDisplay() {
+        const pill = document.getElementById('sidebar-room-code');
+        if (!pill) return;
+        const val = document.getElementById('sidebar-room-code-val');
+        const roomId = Online.getRoomId();
+        const show = onlineMode && !!roomId;
+        pill.classList.toggle('hidden', !show);
+        if (val && roomId) val.textContent = roomId;
     }
 
     function updatePlayerUI() {
@@ -845,14 +870,33 @@ const App = (() => {
 
     // ---- Undo ----
     function undoMove() {
-        if (onlineMode) { showToast('Undo is disabled during online games', 'err'); return; }
         if (sanHistory.length === 0) { showToast('Nothing to undo', 'err'); return; }
+
+        // Online: only the player who made the last move may take it back,
+        // and the undo is mirrored to the opponent so both boards stay in sync.
+        if (onlineMode) {
+            const lastMover = engine.turn === 'w' ? 'b' : 'w';
+            if (Online.getMyColor() !== lastMover) {
+                showToast('You can only undo your own last move', 'err');
+                return;
+            }
+            doUndo();
+            Online.sendUndo();
+            return;
+        }
+
+        doUndo();
+    }
+
+    /** Revert the last move locally (used by local undo, online undo, and remote undo). */
+    function doUndo() {
         sanHistory.pop();
         fenHistory.pop();
         engine = new ChessEngine(fenHistory[fenHistory.length - 1]);
         lastMove = null; selectedSq = null; validMoves = []; gameOver = false;
         renderBoard(); updateStatus(); updateMoveHistory();
-        showToast('Move undone', 'ok');
+        saveState();
+        sounds.playUndo();
     }
 
     // ---- Copy PGN ----
@@ -1392,6 +1436,7 @@ const App = (() => {
             onlineMode = false;
             onlineGameStarted = false;
             onlineStatusBar.innerHTML = `<span class="dot-offline"></span> Offline`;
+            updateRoomCodeDisplay();
         }
 
         // Color choice buttons
@@ -1495,6 +1540,11 @@ const App = (() => {
             doMove(data.from, data.to, data.promoPiece || 'q', true);
         });
 
+        // Opponent took back a move — mirror the undo so both boards stay in sync
+        Online.onUndo(() => {
+            if (sanHistory.length > 0) doUndo();
+        });
+
         // Guest receives the "ready" signal from host → start together
         Online.onStart(() => {
             startOnlineGame();
@@ -1561,6 +1611,7 @@ const App = (() => {
                 Online.disconnect();
                 onlineMode = false;
                 onlineStatusBar.innerHTML = `<span class="dot-offline"></span> Offline`;
+                updateRoomCodeDisplay();
             }
             newGame();
             showToast('Local 2-player game started', 'ok');
@@ -1628,9 +1679,9 @@ const App = (() => {
         document.getElementById('btn-review').addEventListener('click', () => {
             document.getElementById('go-modal').classList.add('hidden');
         });
-        // Undo button in game-over modal (available for local games)
+        // Undo button in game-over modal (local + online takeback)
         document.getElementById('btn-undo-last').addEventListener('click', () => {
-            if (gameOverReason !== 'disconnect' && !onlineMode) {
+            if (gameOverReason !== 'disconnect') {
                 document.getElementById('go-modal').classList.add('hidden');
                 undoMove();
             }
@@ -1642,6 +1693,7 @@ const App = (() => {
             Online.disconnect();
             onlineMode = false;
             onlineStatusBar.innerHTML = `<span class="dot-offline"></span> Offline`;
+            updateRoomCodeDisplay();
             newGame();
         });
 
@@ -1774,6 +1826,18 @@ const App = (() => {
         };
         btn.addEventListener('click', doJoin);
         input.addEventListener('keydown', e => { if (e.key === 'Enter') doJoin(); });
+
+        // Room code pill — click to copy the code for rejoining
+        const pill = document.getElementById('sidebar-room-code');
+        if (pill) {
+            pill.addEventListener('click', () => {
+                const code = Online.getRoomId();
+                if (!code) return;
+                navigator.clipboard.writeText(code)
+                    .then(() => showToast('Room code copied: ' + code, 'ok'))
+                    .catch(() => showToast('Room: ' + code, 'ok'));
+            });
+        }
     }
 
     // ============================================================
